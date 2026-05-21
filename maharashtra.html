@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>महाराष्ट्र — Interactive नकाशा</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;background:#001a0a;color:#e8f5e9;}
+  /* HEADER */
+  #header{
+    height:52px;
+    background:linear-gradient(90deg,#1a5200,#2e7d32,#ff8f00,#2e7d32,#1a5200);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;border-bottom:3px solid #ff8f00;
+    box-shadow:0 3px 14px rgba(0,0,0,0.6);
+    flex-shrink:0;position:relative;z-index:1000;
+  }
+  .hdr-left{display:flex;align-items:center;gap:10px;}
+  .hdr-emoji{font-size:28px;}
+  .hdr-title{font-size:24px;font-weight:900;color:#fffde7;letter-spacing:2px;text-shadow:2px 2px 6px #000;}
+  .hdr-sub{font-size:10px;color:#ffecb3;letter-spacing:1px;}
+  .btn-info{background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);
+    color:#fff;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;transition:background .2s;}
+  .btn-info:hover{background:rgba(255,255,255,0.3);}
+  /* LAYOUT */
+  #layout{display:flex;height:calc(100vh - 52px);overflow:hidden;}
+  /* SIDEBAR */
+  #sidebar{width:252px;min-width:252px;background:rgba(0,15,5,0.94);
+    border-right:1px solid rgba(255,143,0,0.35);display:flex;flex-direction:column;z-index:500;}
+  .sb-hdr{padding:10px 14px 7px;border-bottom:1px solid rgba(255,143,0,0.22);
+    font-size:11px;color:#ff8f00;font-weight:800;letter-spacing:1px;flex-shrink:0;}
+  .sb-filter{padding:8px 10px 6px;border-bottom:1px solid rgba(255,143,0,0.14);flex-shrink:0;}
+  .sb-filter p{font-size:10px;color:#999;margin-bottom:5px;}
+  .filter-wrap{display:flex;flex-wrap:wrap;gap:4px;}
+  .fb{font-size:10px;padding:3px 8px;border-radius:12px;border:1px solid #555;
+    background:transparent;color:#bbb;cursor:pointer;transition:all .18s;}
+  .fb.on{background:#ff8f00;color:#000;border-color:#ff8f00;font-weight:700;}
+  .fb:hover:not(.on){border-color:#ff8f00;color:#ff8f00;}
+  #loc-list{overflow-y:auto;flex:1;}
+  #loc-list::-webkit-scrollbar{width:4px;}
+  #loc-list::-webkit-scrollbar-thumb{background:#ff8f0055;border-radius:4px;}
+  .li-btn{display:flex;align-items:center;gap:9px;width:100%;padding:8px 13px;
+    background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.05);
+    border-left:3px solid transparent;cursor:pointer;color:#e8f5e9;text-align:left;transition:all .15s;}
+  .li-btn:hover{background:rgba(255,255,255,0.07);}
+  .li-btn.on{background:rgba(255,143,0,0.2);}
+  .li-btn.fhide{display:none;}
+  .li-ic{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:13px;flex-shrink:0;}
+  .li-name{font-size:12px;font-weight:600;color:#fff9c4;}
+  .li-btn.on .li-name{color:#ff8f00;}
+  .li-cat{font-size:10px;color:#888;}
+  /* LEGEND */
+  #legend{padding:9px 13px;border-top:1px solid rgba(255,143,0,0.22);
+    background:rgba(0,0,0,0.35);flex-shrink:0;}
+  .leg-t{font-size:10px;color:#ff8f00;font-weight:800;margin-bottom:5px;}
+  .leg-row{font-size:10px;color:#bbb;margin-bottom:2px;}
+  /* MAP */
+  #map-wrap{flex:1;position:relative;overflow:hidden;}
+  #map{width:100%;height:100%;}
+  #credit-badge{position:absolute;top:10px;right:10px;z-index:900;
+    background:rgba(0,20,5,0.85);border:1.5px solid #ff8f00;border-radius:10px;
+    padding:6px 14px;font-size:12px;font-weight:700;color:#ff8f00;letter-spacing:.5px;
+    pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,0.6);backdrop-filter:blur(4px);}
+  #zoom-hint{position:absolute;bottom:12px;right:10px;z-index:900;
+    background:rgba(0,20,5,0.78);border:1px solid rgba(255,143,0,0.3);border-radius:8px;
+    padding:5px 12px;font-size:10px;color:#ff8f00;pointer-events:none;}
+  /* POPUP */
+  .cust-popup .leaflet-popup-content-wrapper{
+    background:linear-gradient(160deg,rgba(0,15,5,0.97),rgba(0,30,10,0.97));
+    border:2px solid #ff8f00;border-radius:14px;color:#e8f5e9;
+    padding:0;min-width:280px;max-width:320px;box-shadow:0 8px 40px rgba(0,0,0,0.8);}
+  .cust-popup .leaflet-popup-tip{background:rgba(0,30,10,0.97);}
+  .cust-popup .leaflet-popup-content{margin:0;width:100%!important;}
+  .pop-inner{padding:14px 16px;}
+  .pop-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .pop-icon-wrap{width:42px;height:42px;border-radius:50%;display:flex;
+    align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+  .pop-title{font-size:17px;font-weight:800;color:#fff;}
+  .pop-badge{display:inline-block;border-radius:20px;padding:2px 9px;
+    font-size:10px;font-weight:700;margin-top:3px;}
+  .pop-divider{height:1px;margin-bottom:9px;}
+  .pop-pts{display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto;}
+  .pop-pts::-webkit-scrollbar{width:3px;}
+  .pop-pts::-webkit-scrollbar-thumb{background:#ff8f0055;border-radius:3px;}
+  .pop-pt{font-size:11.5px;color:#dcedc8;line-height:1.5;
+    background:rgba(255,255,255,0.04);border-radius:7px;padding:6px 9px;}
+  .leaflet-popup-close-button{color:#ff8f00!important;font-size:18px!important;top:8px!important;right:10px!important;}
+  /* MODAL */
+  #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);
+    z-index:5000;align-items:center;justify-content:center;backdrop-filter:blur(5px);}
+  #modal.open{display:flex;}
+  .modal-box{background:linear-gradient(135deg,#001a05,#00100a);border:2px solid #ff8f00;
+    border-radius:18px;padding:26px;max-width:500px;width:92%;
+    box-shadow:0 20px 80px rgba(0,0,0,0.8);animation:fadeUp .3s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .m-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .m-head span{font-size:40px;}
+  .m-h2{font-size:24px;font-weight:900;color:#ff8f00;}
+  .m-sub{font-size:11px;color:#aaa;}
+  .m-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
+  .m-cell{background:rgba(255,143,0,0.08);border:1px solid rgba(255,143,0,0.22);
+    border-radius:9px;padding:8px 12px;}
+  .m-cl{font-size:10px;color:#ff8f00;font-weight:700;margin-bottom:3px;}
+  .m-cv{font-size:12px;color:#fff9c4;}
+  .m-border{background:rgba(255,143,0,0.08);border:1px solid rgba(255,143,0,0.22);
+    border-radius:9px;padding:8px 12px;margin-bottom:12px;}
+  .m-cbtn{width:100%;padding:10px;background:#ff8f00;color:#000;border:none;
+    border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;}
+  .m-cbtn:hover{background:#ffb300;}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="hdr-left">
+    <span class="hdr-emoji">🌾</span>
+    <div>
+      <div class="hdr-title">महाराष्ट्र</div>
+      <div class="hdr-sub">भारताचे औद्योगिक व सांस्कृतिक केंद्र &nbsp;•&nbsp; Interactive नकाशा</div>
+    </div>
+  </div>
+  <button class="btn-info" onclick="openModal()">ℹ️ राज्य माहिती</button>
+</div>
+
+<div id="layout">
+  <div id="sidebar">
+    <div class="sb-hdr">📋 INDEX — ठिकाणे</div>
+    <div class="sb-filter">
+      <p>श्रेणीनुसार फिल्टर:</p>
+      <div class="filter-wrap">
+        <button class="fb on"  onclick="setFilter('all',this)">सर्व</button>
+        <button class="fb" onclick="setFilter('capital',this)">🏛️ राजधानी</button>
+        <button class="fb" onclick="setFilter('industry',this)">🏭 उद्योग</button>
+        <button class="fb" onclick="setFilter('agriculture',this)">🌾 शेती</button>
+        <button class="fb" onclick="setFilter('mine',this)">⛏️ खाण</button>
+        <button class="fb" onclick="setFilter('wildlife',this)">🐯 वन्यजीव</button>
+        <button class="fb" onclick="setFilter('tourism',this)">🏰 पर्यटन</button>
+        <button class="fb" onclick="setFilter('konkan',this)">🌊 कोकण</button>
+        <button class="fb" onclick="setFilter('energy',this)">⚡ ऊर्जा</button>
+        <button class="fb" onclick="setFilter('textile',this)">🧵 वस्त्र</button>
+      </div>
+    </div>
+    <div id="loc-list"></div>
+    <div id="legend">
+      <div class="leg-t">📌 चिन्ह आख्यायिका</div>
+      <div class="leg-row">🏛️ राजधानी / उपराजधानी</div>
+      <div class="leg-row">🏭 उद्योग केंद्र</div>
+      <div class="leg-row">🌾 शेती / फलोत्पादन</div>
+      <div class="leg-row">⛏️ खाण / खनिज</div>
+      <div class="leg-row">🐯 वन्यजीव अभयारण्य</div>
+      <div class="leg-row">🏰 पर्यटन / ऐतिहासिक</div>
+      <div class="leg-row">🌊 कोकण पर्यटन</div>
+      <div class="leg-row">⚡ ऊर्जा प्रकल्प</div>
+      <div class="leg-row">🧵 वस्त्रोद्योग</div>
+    </div>
+  </div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="credit-badge">🗺️ Map by Dr. Sameer A. Butala</div>
+    <div id="zoom-hint">🔍 Scroll to Zoom &nbsp;|&nbsp; Click marker for info</div>
+  </div>
+</div>
+
+<!-- STATE INFO MODAL -->
+<div id="modal" onclick="closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="m-head">
+      <span>🌾</span>
+      <div>
+        <div class="m-h2">महाराष्ट्र</div>
+        <div class="m-sub">प्राथमिक माहिती</div>
+      </div>
+    </div>
+    <div class="m-grid">
+      <div class="m-cell"><div class="m-cl">📐 क्षेत्रफळ</div><div class="m-cv">३,०७,७१३ चौ. कि. मी.</div></div>
+      <div class="m-cell"><div class="m-cl">👥 लोकसंख्या</div><div class="m-cv">११,२३,७४,३३३ (२०११)</div></div>
+      <div class="m-cell"><div class="m-cl">🏛️ राजधानी</div><div class="m-cv">मुंबई</div></div>
+      <div class="m-cell"><div class="m-cl">🏢 उपराजधानी</div><div class="m-cv">नागपूर</div></div>
+      <div class="m-cell"><div class="m-cl">🗣️ भाषा</div><div class="m-cv">मराठी</div></div>
+      <div class="m-cell"><div class="m-cl">📅 स्थापना</div><div class="m-cv">१ मे १९६०</div></div>
+      <div class="m-cell"><div class="m-cl">🌐 अक्षांश</div><div class="m-cv">१५°.६ — २२°.१ उत्तर</div></div>
+      <div class="m-cell"><div class="m-cl">🌐 रेखांश</div><div class="m-cv">७२°.६ — ८०°.९ पूर्व</div></div>
+    </div>
+    <div class="m-border">
+      <div class="m-cl">🗺️ सीमा</div>
+      <div class="m-cv" style="margin-top:4px;line-height:1.6">
+        उत्तरेस मध्य प्रदेश व छत्तीसगड • पूर्वेस छत्तीसगड व तेलंगणा •
+        दक्षिणेस कर्नाटक व गोवा • पश्चिमेस अरबी समुद्र • वायव्येस गुजरात व दादरा-नगर हवेली
+      </div>
+    </div>
+    <button class="m-cbtn" onclick="closeModal()">बंद करा ✕</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const LOCATIONS = [
+  {
+    id:1, name:"मुंबई", cat:"capital", icon:"🏛️", color:"#e53935",
+    lat:18.9388, lng:72.8354,
+    info:[
+      "🏛️ महाराष्ट्राची राजधानी व भारताची आर्थिक राजधानी",
+      "🚢 जगातील प्रमुख बंदरांपैकी एक — जवाहरलाल नेहरू पोर्ट (JNPT)",
+      "🎬 बॉलीवूड — भारतीय चित्रपटसृष्टीचे केंद्र",
+      "💹 BSE (बॉम्बे स्टॉक एक्सचेंज) — आशियातील सर्वात जुनी शेअर बाजार",
+      "🏭 SEEPZ — सॉफ्टवेअर टेक्नॉलॉजी पार्क व निर्यात प्रक्रिया क्षेत्र",
+      "🏗️ BKC (बांद्रा-कुर्ला कॉम्प्लेक्स) — व्यापारी केंद्र",
+      "🌊 अरबी समुद्राच्या किनाऱ्यावर वसलेले — नैसर्गिक बंदर",
+    ]
+  },
+  {
+    id:2, name:"पुणे", cat:"industry", icon:"🏭", color:"#1e88e5",
+    lat:18.5204, lng:73.8567,
+    info:[
+      "🏭 'पूर्वेचे ऑक्सफर्ड' — शिक्षणाची पंढरी",
+      "🚗 वाहन उद्योगाचे केंद्र — टाटा, बजाज, फोर्स मोटर्स",
+      "💻 IT हब — हिंजेवाडी, मगरपट्टा — देशातील प्रमुख IT पार्क",
+      "🔫 संरक्षण साहित्य उत्पादन — भारत फोर्ज, Ordnance Factory",
+      "📚 AICTE, COEP, ILS, Symbiosis — अनेक प्रमुख विद्यापीठे",
+      "🍇 आजूबाजूच्या परिसरात द्राक्षे व वाइन उत्पादन",
+    ]
+  },
+  {
+    id:3, name:"नागपूर", cat:"capital", icon:"🍊", color:"#ff7043",
+    lat:21.1458, lng:79.0882,
+    info:[
+      "🏢 महाराष्ट्राची उपराजधानी — हिवाळी अधिवेशन येथे",
+      "🍊 'संत्र्यांचे शहर' — भारतातील सर्वात जास्त संत्री उत्पादन",
+      "✈️ MIHAN — मल्टी-मोडल इंटरनॅशनल हब अँड एअरपोर्ट",
+      "🌐 भारताचे भौगोलिक केंद्र (Zero Mile) येथे आहे",
+      "🏭 बटीबोई, हॅल्कॉन, इन्फोसिस, TCS कॅम्पस येथे",
+      "⛏️ जवळपास विदर्भात कोळसा व खनिज साठे",
+    ]
+  },
+  {
+    id:4, name:"छ. संभाजीनगर", cat:"tourism", icon:"🏰", color:"#7b1fa2",
+    lat:19.8762, lng:75.3433,
+    info:[
+      "🏰 अजिंठा लेणी — युनेस्को जागतिक वारसा स्थळ (बौद्ध चित्रकला)",
+      "🏛️ वेरूळ लेणी — युनेस्को जागतिक वारसा (बौद्ध, हिंदू, जैन)",
+      "🕌 बीबी का मकबरा — 'दक्खनचा ताज' म्हणून प्रसिद्ध",
+      "🚗 वाहन उद्योग — स्कोडा, ऑडी, व्हीएमटी, कोठारी उद्योग",
+      "🏭 MIDC इंडस्ट्रियल एरिया — वालूज, चिकलठाणा",
+      "📚 डॉ. बाबासाहेब आंबेडकर मराठवाडा विद्यापीठ",
+    ]
+  },
+  {
+    id:5, name:"नाशिक", cat:"agriculture", icon:"🍇", color:"#8e24aa",
+    lat:19.9975, lng:73.7898,
+    info:[
+      "🍇 'भारताची वाइन राजधानी' — द्राक्षे व वाइन उत्पादनात देशात अग्रेसर",
+      "🧅 कांदा उत्पादनाचे प्रमुख केंद्र — निर्यातीत महत्त्वाचे",
+      "🔱 कुंभमेळ्याचे पवित्र स्थान — सिंहस्थ कुंभमेळा येथे",
+      "🏭 Currency Note Press (भारतीय नोटा छपाई) व Ordnance Factory",
+      "✈️ हवाई दल तळ — ओझर एअरपोर्ट",
+      "💧 गंगापूर धरण — मुंबई व नाशिकला पाणीपुरवठा",
+    ]
+  },
+  {
+    id:6, name:"कोल्हापूर", cat:"industry", icon:"🏆", color:"#f57f17",
+    lat:16.7050, lng:74.2433,
+    info:[
+      "🌾 साखर उद्योगाचे प्रमुख केंद्र — पश्चिम महाराष्ट्रात अनेक साखर कारखाने",
+      "👟 चप्पल उद्योग — 'कोल्हापुरी चप्पल' जगप्रसिद्ध",
+      "🏋️ कुस्तीसाठी प्रसिद्ध — महाराष्ट्राची 'मल्लांची भूमी'",
+      "🙏 महालक्ष्मी (अंबाबाई) मंदिर — साडेतीन शक्तिपीठांपैकी एक",
+      "🎬 कोल्हापूर सिनेशहर — मराठी चित्रपटसृष्टीचे ऐतिहासिक केंद्र",
+      "🧪 फार्मा उद्योग व अभियांत्रिकी उद्योग येथे",
+    ]
+  },
+  {
+    id:7, name:"सोलापूर", cat:"textile", icon:"🧵", color:"#d84315",
+    lat:17.6866, lng:75.9064,
+    info:[
+      "🧵 'टेरी टॉवेल सिटी' — सोलापुरी चादरी व टॉवेल जगप्रसिद्ध",
+      "🏭 सूत कताई व विणकाम उद्योगाचे प्रमुख केंद्र",
+      "🥜 शेंगदाणा (भुईमूग) उत्पादनात अग्रेसर",
+      "🙏 पंढरपूर — विठ्ठल मंदिर, वारकरी संप्रदायाचे केंद्र (जवळ)",
+      "⚡ सोलापूर थर्मल पॉवर स्टेशन — महत्त्वाचा ऊर्जा स्रोत",
+      "🏗️ MIDC औद्योगिक क्षेत्र — अनेक उद्योग",
+    ]
+  },
+  {
+    id:8, name:"अमरावती", cat:"agriculture", icon:"🌿", color:"#388e3c",
+    lat:20.9374, lng:77.7796,
+    info:[
+      "🍊 संत्री उत्पादनाचे दुसरे प्रमुख केंद्र — 'संत्र्याचे शहर'",
+      "🌿 कापूस उत्पादनाचे प्रमुख क्षेत्र — विदर्भाचे कापूस पट्टा",
+      "🐆 मेळघाट व्याघ्र प्रकल्प — व्याघ्र संवर्धनाचे महत्त्वाचे केंद्र",
+      "🏛️ श्री अंबादेवी मंदिर — प्रसिद्ध धार्मिक स्थळ",
+      "🎓 संत गाडगेबाबा अमरावती विद्यापीठ",
+      "🌊 वरखेड धरण — सिंचन व पाणीपुरवठा",
+    ]
+  },
+  {
+    id:9, name:"नांदेड", cat:"tourism", icon:"🕌", color:"#0288d1",
+    lat:19.1383, lng:77.3210,
+    info:[
+      "🕌 हजूर साहिब गुरुद्वारा — शिख धर्माच्या पाच तख्तांपैकी एक",
+      "🙏 शीख धर्माचे पवित्र तीर्थक्षेत्र — गुरू गोबिंद सिंह यांचे स्थान",
+      "🌾 कापूस, ज्वारी व सोयाबीन उत्पादनाचे क्षेत्र",
+      "🏭 MIDC नांदेड — औद्योगिक विकास",
+      "🎓 स्वामी रामानंद तीर्थ मराठवाडा विद्यापीठ",
+    ]
+  },
+  {
+    id:10, name:"लातूर", cat:"agriculture", icon:"🌱", color:"#558b2f",
+    lat:18.4088, lng:76.5604,
+    info:[
+      "🌱 डाळी उत्पादनाचे प्रमुख केंद्र — तूर, हरभरा, मूग",
+      "🪨 ग्रॅनाइट दगडाचे मोठे साठे — निर्यात होते",
+      "🌾 सोयाबीन व ऊस उत्पादनही महत्त्वाचे",
+      "🏫 'दक्षिण महाराष्ट्राचे शिक्षण केंद्र' — अनेक शाळा, महाविद्यालये",
+      "🏗️ लातूर भूकंप (१९९३) नंतर पुनर्बांधणी — आधुनिक शहर",
+    ]
+  },
+  {
+    id:11, name:"सांगली", cat:"agriculture", icon:"🌼", color:"#ffb300",
+    lat:16.8524, lng:74.5815,
+    info:[
+      "🌼 'हळदीचे शहर' — भारतातील सर्वात जास्त हळद उत्पादन व बाजारपेठ",
+      "🍇 द्राक्ष व बेदाणे (मनुका) उत्पादनात देशात अग्रेसर",
+      "🌾 साखर उद्योग — अनेक सहकारी साखर कारखाने",
+      "🏭 वायर व केबल उद्योग महत्त्वाचे",
+      "🌊 कृष्णा नदीकाठी वसलेले — सिंचन सुविधा उत्तम",
+    ]
+  },
+  {
+    id:12, name:"सातारा", cat:"energy", icon:"⚡", color:"#00838f",
+    lat:17.6805, lng:74.0183,
+    info:[
+      "⚡ कोयना जलविद्युत प्रकल्प — महाराष्ट्रातील सर्वात मोठा जलविद्युत प्रकल्प",
+      "💧 कोयना धरण — महाराष्ट्रातील सर्वात मोठे धरण",
+      "🌸 कास पठार — युनेस्को जागतिक वारसा, 'फुलांचे व्हॅली'",
+      "🌾 स्ट्रॉबेरी, द्राक्षे, ऊस उत्पादनात अग्रेसर",
+      "🏔️ सह्याद्री पर्वतरांगा — निसर्गसंपन्न परिसर",
+    ]
+  },
+  {
+    id:13, name:"रत्नागिरी", cat:"konkan", icon:"🥭", color:"#e65100",
+    lat:16.9902, lng:73.3120,
+    info:[
+      "🥭 'हापूस आंब्याचे माहेरघर' — देवगड-रत्नागिरी हापूस जगप्रसिद्ध",
+      "🏖️ गणपतिपुळे — स्वयंभू गणपती मंदिर व सुंदर स्वच्छ समुद्रकिनारा",
+      "🏖️ आरे-वारे, मालगुंड, वेळणेश्वर — निसर्गसंपन्न किनारे",
+      "🐟 मत्स्यव्यवसाय — कोकण किनाऱ्यावर मोठ्या प्रमाणात; कोळंबी-बांगडा प्रसिद्ध",
+      "☢️ जैतापूर अणुऊर्जा प्रकल्प — प्रस्तावित जगातील सर्वात मोठा",
+      "🌴 काजू, नारळ, कोकम उत्पादन — कोकणी खाद्यसंस्कृतीचा आत्मा",
+      "🏠 लोकमान्य बाळ गंगाधर टिळक यांचे जन्मस्थान — चिखली (जवळ)",
+      "🏰 जयगड किल्ला — अरबी समुद्राच्या मुखावर ऐतिहासिक किल्ला",
+    ]
+  },
+  {
+    id:14, name:"चंद्रपूर", cat:"mine", icon:"⛏️", color:"#4e342e",
+    lat:19.9615, lng:79.2961,
+    info:[
+      "⛏️ कोळसा खाणींचे प्रमुख केंद्र — SECL व WCL खाणी",
+      "🏭 BALLARPUR (BILT) — कागद उद्योगाचा मोठा कारखाना",
+      "🐯 ताडोबा-अंधारी व्याघ्र प्रकल्प — महाराष्ट्रातील सर्वात मोठे व्याघ्र अभयारण्य",
+      "⚡ चंद्रपूर सुपर थर्मल पॉवर स्टेशन — महाराष्ट्रातील मोठे औष्णिक वीजकेंद्र",
+      "🧱 सिमेंट उद्योग — ACC सिमेंट कारखाना येथे",
+      "🌳 घनदाट जंगल — लाकूड व वनसंपत्ती",
+    ]
+  },
+  {
+    id:15, name:"गडचिरोली", cat:"wildlife", icon:"🌳", color:"#1b5e20",
+    lat:20.1809, lng:80.0000,
+    info:[
+      "🌳 महाराष्ट्रातील सर्वात जास्त वनक्षेत्र असलेला जिल्हा",
+      "🦁 इंद्रावती नदीच्या खोऱ्यात समृद्ध जैवविविधता",
+      "🏹 आदिवासी संस्कृती — गोंड व माडिया जमातींचे अधिवास",
+      "⛏️ लोहखनिज व अन्य खनिजांचे साठे",
+      "🌿 बांबू उद्योग व वनोपजावर आधारित अर्थव्यवस्था",
+    ]
+  },
+  {
+    id:16, name:"जळगाव", cat:"agriculture", icon:"🍌", color:"#f9a825",
+    lat:21.0077, lng:75.5626,
+    info:[
+      "🍌 'केळीचे शहर' — महाराष्ट्रातील सर्वाधिक केळी उत्पादन",
+      "🌾 कापूस उत्पादनात उत्तर महाराष्ट्रात अग्रेसर",
+      "🏺 अजिंठा लेणी — जवळच (छ. संभाजीनगर जिल्ह्यात)",
+      "💛 हळद व सोयाबीन उत्पादनही येथे",
+      "🏗️ MIDC जळगाव — औद्योगिक क्षेत्र विकसित",
+    ]
+  },
+  {
+    id:17, name:"ठाणे", cat:"industry", icon:"🏗️", color:"#455a64",
+    lat:19.2183, lng:72.9781,
+    info:[
+      "🏗️ 'लेक सिटी' — अनेक तलावांमुळे प्रसिद्ध",
+      "🏭 MIDC ठाणे-बेलापूर औद्योगिक क्षेत्र — रसायन, फार्मा उद्योग",
+      "🚇 मुंबई महानगर क्षेत्रातील प्रमुख उपनगर",
+      "💊 रसायन व औषध निर्मिती उद्योगाचे केंद्र",
+      "🌿 संजय गांधी राष्ट्रीय उद्यान — मुंबई-ठाणे जवळ",
+    ]
+  },
+  {
+    id:18, name:"रायगड", cat:"konkan", icon:"🏯", color:"#6d4c41",
+    lat:18.2437, lng:73.4400,
+    info:[
+      "🏯 रायगड किल्ला — छत्रपती शिवाजी महाराजांची राजधानी; उंची १,३५६ मी.",
+      "🌊 अलिबाग — कोलाबा किल्ला, स्वच्छ किनारे, मुंबईपासून जवळ",
+      "🏝️ मुरुड-जंजिरा किल्ला — अरबी समुद्रातील अजेय बेट-किल्ला (जवळ)",
+      "🚢 JNPT (जवाहरलाल नेहरू पोर्ट) — भारतातील सर्वात मोठे कंटेनर बंदर",
+      "🏭 तळोजा MIDC — आशियातील एक मोठे MIDC; रसायन व फार्मा उद्योग",
+      "🛢️ ONGC उरण — पेट्रोकेमिकल प्रकल्प",
+      "🏖️ श्रीवर्धन, हरिहरेश्वर — पर्यटन किनारे व मंदिरे",
+    ]
+  },
+  {
+    id:19, name:"भंडारा", cat:"agriculture", icon:"🌾", color:"#33691e",
+    lat:21.1667, lng:79.6500,
+    info:[
+      "🌾 'तांदुळाचे भांडार' — भंडारा जिल्हा तांदूळ उत्पादनात अग्रेसर",
+      "🐟 मत्स्यपालन — अनेक तलावांमुळे",
+      "🌊 गोसेखुर्द धरण — विदर्भातील मोठा सिंचन प्रकल्प",
+      "🌿 मोहफूल व वनोपज — आदिवासी अर्थव्यवस्थेला आधार",
+    ]
+  },
+  {
+    id:20, name:"वर्धा", cat:"tourism", icon:"✌️", color:"#00695c",
+    lat:20.7408, lng:78.6039,
+    info:[
+      "✌️ सेवाग्राम आश्रम — महात्मा गांधींचे निवासस्थान व स्वातंत्र्यलढ्याचे केंद्र",
+      "🧵 खादी व ग्रामोद्योगाचे केंद्र — गांधी विचारांशी जोडलेले",
+      "🌾 कापूस उत्पादनात विदर्भात प्रमुख",
+      "🏫 महात्मा गांधी आंतरराष्ट्रीय हिंदी विद्यापीठ येथे",
+      "🕊️ पवनार आश्रम — विनोबा भावे यांचे कार्यक्षेत्र",
+    ]
+  },
+  {
+    id:21, name:"बुलढाणा", cat:"tourism", icon:"🌋", color:"#37474f",
+    lat:20.5272, lng:76.1842,
+    info:[
+      "🌋 लोणार सरोवर — उल्कापातामुळे निर्मित जगातील दुर्मिळ खारे तलाव",
+      "🌿 लोणार अभयारण्य — जैवविविधतेसाठी प्रसिद्ध",
+      "🌾 कापूस, सोयाबीन, ज्वारी उत्पादन क्षेत्र",
+      "🕌 खामगाव — कापड व तेल उद्योग",
+    ]
+  },
+  {
+    id:22, name:"अकोला", cat:"agriculture", icon:"🌿", color:"#558b2f",
+    lat:20.7002, lng:77.0082,
+    info:[
+      "🌿 कापूस उत्पादनात विदर्भात अग्रेसर — 'व्हाईट गोल्ड' क्षेत्र",
+      "🌾 सोयाबीन, तूर डाळ उत्पादन महत्त्वाचे",
+      "🏭 कापूस प्रक्रिया (जिनिंग-प्रेसिंग) उद्योग",
+      "🌊 काटेपूर्णा अभयारण्य — जवळच",
+    ]
+  },
+  {
+    id:23, name:"यवतमाळ", cat:"agriculture", icon:"🌿", color:"#2e7d32",
+    lat:20.3888, lng:78.1204,
+    info:[
+      "🌿 कापूस उत्पादनाचे प्रमुख केंद्र — 'कापसाचे शहर'",
+      "🌾 सोयाबीन व तूर उत्पादनातही अग्रेसर",
+      "🐯 टिपेश्वर अभयारण्य — वाघ व इतर वन्यप्राणी",
+      "🏭 कापूस प्रक्रिया, तेल उद्योग येथे",
+    ]
+  },
+  {
+    id:24, name:"सिंधुदुर्ग", cat:"konkan", icon:"🏰", color:"#0097a7",
+    lat:16.0571, lng:73.5146,
+    info:[
+      "🏰 सिंधुदुर्ग किल्ला — छत्रपती शिवाजी महाराजांनी १६६४ मध्ये समुद्रात बांधलेला अजेय किल्ला",
+      "🤿 तारकर्ली — स्कुबा डायव्हिंग, स्नॉर्केलिंग; भारतातील सर्वोत्तम पाणीखेळ स्थळ",
+      "🏖️ मालवण — स्वच्छ पांढरी वाळू, मत्स्याहार, शांत वातावरण",
+      "🐢 वेळास किनारा — ऑलिव्ह रिडले कासव संवर्धन प्रकल्प",
+      "🌴 काजू, नारळ, आंबा, फणस उत्पादन — कोकणी खाद्यसंस्कृती",
+      "🎨 सावंतवाडी — लाकडी खेळण्यांची कला (लाखेची कामे) जगप्रसिद्ध",
+      "🌊 निवती, शिरोडा, आचरा — शांत व निर्जन समुद्रकिनारे",
+    ]
+  },
+  {
+    id:25, name:"नाशिक-इगतपुरी", cat:"energy", icon:"⚡", color:"#00838f",
+    lat:19.6872, lng:73.5616,
+    info:[
+      "💧 इगतपुरी — भातसा व वैतरणा धरणे — मुंबईला पाणीपुरवठा",
+      "🌄 सह्याद्री पर्वत घाट — पर्यटन व निसर्ग",
+      "🧘 विपश्यना ध्यान केंद्र (धम्म गिरी) — जागतिक पातळीवर प्रसिद्ध",
+      "🍅 टोमॅटो, भाजीपाला उत्पादन क्षेत्र",
+    ]
+  },
+  {
+    id:26, name:"उस्मानाबाद (धाराशीव)", cat:"agriculture", icon:"🌱", color:"#827717",
+    lat:18.1860, lng:76.0380,
+    info:[
+      "🌱 डाळी उत्पादनात मराठवाड्यात अग्रेसर — तूर, हरभरा",
+      "🍬 ऊस व साखर उद्योग",
+      "🌾 सोयाबीन उत्पादनही मोठे",
+      "🛕 तुळजापूर — तुळजाभवानी मंदिर, साडेतीन शक्तिपीठांपैकी एक",
+    ]
+  },
+  {
+    id:27, name:"परभणी", cat:"agriculture", icon:"🌾", color:"#33691e",
+    lat:19.2666, lng:76.7749,
+    info:[
+      "🌾 ज्वारी, कापूस, सोयाबीन उत्पादनाचे केंद्र",
+      "🎓 वसंतराव नाईक मराठवाडा कृषी विद्यापीठ — कृषी संशोधनाचे केंद्र",
+      "🏭 सूत गिरणी व प्रक्रिया उद्योग",
+    ]
+  },
+  // ── कोकण विभाग ──
+  {
+    id:28, name:"अलिबाग", cat:"konkan", icon:"🏝️", color:"#00838f",
+    lat:18.6411, lng:72.8724,
+    info:[
+      "🏝️ 'मुंबईचे गोवा' — मुंबईपासून जवळ असलेले प्रमुख समुद्रकिनारी पर्यटनस्थळ",
+      "🏰 कोलाबा किल्ला — समुद्रातील किल्ला; भरतीच्या वेळी पाण्याने वेढलेला",
+      "🌊 अलिबाग, नागाव, किहिम, आक्षी — स्वच्छ व सुंदर किनारे",
+      "⛴️ मुंबई-अलिबाग फेरी सेवा — जलद जलवाहतूक",
+      "🍗 कोकणी खाद्यपदार्थ — मालवणी जेवण, ताजी मासळी",
+      "🌿 स्ट्रॉबेरी व भाजीपाला उत्पादन — कोकण हवामानात चांगले पिकते",
+    ]
+  },
+  {
+    id:29, name:"मुरुड-जंजिरा", cat:"konkan", icon:"🏝️", color:"#00695c",
+    lat:18.2980, lng:72.9612,
+    info:[
+      "🏝️ जंजिरा किल्ला — अरबी समुद्रातील बेटावरील अजेय किल्ला; कधीही जिंकला गेला नाही",
+      "🚢 शिवाजी महाराज, मराठे, इंग्रज, पोर्तुगीज — कोणीही जंकला नाही!",
+      "🏰 मुरुड किल्ला (पद्मदुर्ग/कासा किल्ला) — समुद्राच्या जवळील ऐतिहासिक किल्ला",
+      "🌊 मुरुड बीच — स्वच्छ व शांत; पर्यटकांचे आवडते ठिकाण",
+      "🐟 ताजी मासळी व कोकणी जेवण — पर्यटकांसाठी खास आकर्षण",
+      "🕌 दत्त मंदिर, रेवदंडा — धार्मिक व ऐतिहासिक महत्त्व",
+    ]
+  },
+  {
+    id:30, name:"गणपतिपुळे", cat:"konkan", icon:"🙏", color:"#f57f17",
+    lat:17.1441, lng:73.2632,
+    info:[
+      "🙏 स्वयंभू गणपती मंदिर — ४०० वर्षांपेक्षा जुने; श्रद्धाळूंचे महत्त्वाचे तीर्थक्षेत्र",
+      "🏖️ गणपतिपुळे बीच — मंदिरासमोर पसरलेला अत्यंत स्वच्छ व सुंदर किनारा",
+      "🌅 सूर्यास्ताचे विहंगम दृश्य — पर्यटकांचे आवडते ठिकाण",
+      "🌊 जयगड, मालगुंड (कवी केशवसुत यांचे जन्मगाव) — जवळच",
+      "🌴 रस्त्याच्या दुतर्फा नारळाची झाडे — कोकणची ओळख",
+      "🏨 MTDC रिसॉर्ट — शासकीय पर्यटन सुविधा उत्तम",
+    ]
+  },
+  {
+    id:31, name:"देवगड", cat:"konkan", icon:"🥭", color:"#bf360c",
+    lat:16.3833, lng:73.3667,
+    info:[
+      "🥭 'देवगड हापूस' — जगातील सर्वश्रेष्ठ आंबा; GI Tag प्राप्त",
+      "🏰 देवगड किल्ला — अरबी समुद्राच्या किनाऱ्यावरील ऐतिहासिक किल्ला",
+      "🌊 देवगड बीच — अत्यंत स्वच्छ व शांत; निसर्गरम्य परिसर",
+      "🐟 मासेमारी व काजू उद्योग — येथील मुख्य व्यवसाय",
+      "🌴 नारळ, काजू, कोकम — कोकणातील मुख्य पिके",
+      "🎣 विजयदुर्ग किल्ला (जवळ) — समुद्रातील अजेय किल्ला",
+    ]
+  },
+  {
+    id:32, name:"श्रीवर्धन-हरिहरेश्वर", cat:"konkan", icon:"🛕", color:"#6a1b9a",
+    lat:18.0374, lng:73.0192,
+    info:[
+      "🛕 हरिहरेश्वर — 'दक्षिणेचे काशी'; शिव, विष्णू, ब्रह्मा त्रिदेव मंदिर",
+      "🏖️ श्रीवर्धन बीच — नितळ पाणी, पांढरी वाळू; सुरूच्या झाडांची रांग",
+      "🌊 हरिहरेश्वर बीच — धार्मिक व नैसर्गिक सौंदर्याचा अनोखा संगम",
+      "🐢 कासव संवर्धन — दिवेआगर किनाऱ्यावर ऑलिव्ह रिडले कासव (जवळ)",
+      "🏝️ बागमांडला, म्हसळा — शांत व निर्जन किनारे (जवळ)",
+      "🍋 कोकम, आमसूल — येथील प्रसिद्ध उत्पादने",
+    ]
+  },
+  {
+    id:33, name:"वेंगुर्ला", cat:"konkan", icon:"🌊", color:"#0277bd",
+    lat:15.8623, lng:73.6342,
+    info:[
+      "🌊 वेंगुर्ला बीच — सिंधुदुर्ग जिल्ह्यातील सुंदर किनारा",
+      "🏝️ वेंगुर्ला रॉक्स (बर्न बेट) — किनाऱ्यापासून जवळील बेट; MTDC रिसॉर्ट",
+      "🌴 काजू व नारळ उत्पादनात अग्रेसर — कोकणातील महत्त्वाचे केंद्र",
+      "🐟 मासेमारी — ताजी मासळी; मालवणी खाद्यपदार्थ प्रसिद्ध",
+      "🏰 गोव्याच्या सीमेजवळ — पर्यटनाची दुहेरी संधी",
+    ]
+  },
+];
+
+const CAT_LABELS = {
+  capital:"राजधानी / उपराजधानी",
+  industry:"उद्योग केंद्र",
+  agriculture:"शेती / फलोत्पादन",
+  mine:"खाण / खनिज",
+  wildlife:"वन्यजीव",
+  tourism:"पर्यटन / ऐतिहासिक",
+  konkan:"🌊 कोकण पर्यटन",
+  energy:"ऊर्जा प्रकल्प",
+  textile:"वस्त्रोद्योग",
+};
+
+// ── MAP INIT ──
+const map = L.map('map',{
+  center:[19.2,76.5], zoom:7,
+  minZoom:6, maxZoom:17,
+  zoomControl:true, attributionControl:true,
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+  maxZoom:19,
+}).addTo(map);
+
+// Maharashtra approx bounding box highlight
+const mhBounds = [[15.6,72.6],[22.1,80.9]];
+L.rectangle(mhBounds,{color:"#ff8f00",weight:2,opacity:0.3,fill:false,dashArray:"8,6"}).addTo(map);
+map.fitBounds(mhBounds,{padding:[10,10]});
+
+// ── MARKERS ──
+let currentFilter = "all";
+const markerMap = {};
+const layerGroup = L.layerGroup().addTo(map);
+
+function makeIcon(loc, big=false){
+  const sz = big ? 44 : 36;
+  const r  = big ? 20 : 16;
+  const extra = loc.cat==="capital"
+    ? `<circle cx="50%" cy="50%" r="${r+7}" fill="none" stroke="${loc.color}" stroke-width="2" opacity="0.35"/>
+       <circle cx="50%" cy="50%" r="${r+13}" fill="none" stroke="${loc.color}" stroke-width="1" opacity="0.18"/>`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}">
+    ${extra}
+    <circle cx="50%" cy="50%" r="${r}" fill="${loc.color}" opacity="0.92"/>
+    <circle cx="40%" cy="38%" r="${Math.round(r*0.42)}" fill="rgba(255,255,255,0.25)"/>
+    <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="${r}">${loc.icon}</text>
+  </svg>`;
+  return L.divIcon({html:svg,className:"",iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-(sz/2+4)]});
+}
+
+function popupHTML(loc){
+  const pts = loc.info.map(p =>
+    `<div class="pop-pt" style="border-left:3px solid ${loc.color}88">${p}</div>`
+  ).join("");
+  return `
+  <div class="pop-inner">
+    <div class="pop-head">
+      <div class="pop-icon-wrap" style="background:${loc.color};box-shadow:0 0 16px ${loc.color}77">${loc.icon}</div>
+      <div>
+        <div class="pop-title">${loc.name}</div>
+        <span class="pop-badge" style="background:${loc.color}33;border:1px solid ${loc.color}66;color:${loc.color}">
+          ${loc.icon} ${CAT_LABELS[loc.cat]}
+        </span>
+      </div>
+    </div>
+    <div class="pop-divider" style="background:linear-gradient(90deg,${loc.color},transparent)"></div>
+    <div class="pop-pts">${pts}</div>
+  </div>`;
+}
+
+LOCATIONS.forEach(loc => {
+  const marker = L.marker([loc.lat, loc.lng],{icon:makeIcon(loc)})
+    .bindPopup(popupHTML(loc),{maxWidth:320,className:"cust-popup"});
+  marker.addTo(layerGroup);
+  markerMap[loc.id] = marker;
+  marker.on("popupopen",()=>{
+    document.querySelectorAll(".li-btn").forEach(b=>b.classList.remove("on"));
+    const btn = document.querySelector(`.li-btn[data-id="${loc.id}"]`);
+    if(btn){btn.classList.add("on");btn.scrollIntoView({behavior:"smooth",block:"nearest"});}
+    marker.setIcon(makeIcon(loc,true));
+  });
+  marker.on("popupclose",()=>{
+    marker.setIcon(makeIcon(loc,false));
+    document.querySelectorAll(".li-btn").forEach(b=>b.classList.remove("on"));
+  });
+});
+
+// ── SIDEBAR ──
+function buildList(){
+  const list = document.getElementById("loc-list");
+  list.innerHTML="";
+  LOCATIONS.forEach(loc=>{
+    const btn = document.createElement("button");
+    btn.className = "li-btn"+(currentFilter!=="all"&&loc.cat!==currentFilter?" fhide":"");
+    btn.dataset.id = loc.id;
+    btn.dataset.cat = loc.cat;
+    btn.innerHTML = `
+      <div class="li-ic" style="background:${loc.color}">${loc.icon}</div>
+      <div>
+        <div class="li-name">${loc.name}</div>
+        <div class="li-cat">${CAT_LABELS[loc.cat]}</div>
+      </div>`;
+    btn.addEventListener("click",()=>{
+      const m = markerMap[loc.id];
+      map.flyTo([loc.lat,loc.lng],11,{duration:1});
+      setTimeout(()=>m.openPopup(),950);
+    });
+    list.appendChild(btn);
+  });
+}
+
+function setFilter(cat,btn){
+  currentFilter=cat;
+  document.querySelectorAll(".fb").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  document.querySelectorAll(".li-btn").forEach(el=>{
+    if(cat==="all"||el.dataset.cat===cat) el.classList.remove("fhide");
+    else el.classList.add("fhide");
+  });
+  LOCATIONS.forEach(loc=>{
+    markerMap[loc.id].setOpacity(cat==="all"||loc.cat===cat?1:0.18);
+  });
+}
+
+function openModal(){document.getElementById("modal").classList.add("open");}
+function closeModal(){document.getElementById("modal").classList.remove("open");}
+
+buildList();
+</script>
+</body>
+</html>
